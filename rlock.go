@@ -18,7 +18,7 @@ end`
 
 var (
 	DefaultInstance *Rlock
-	mutex           sync.Mutex
+	mux             = &sync.Mutex{}
 
 	defaultConfig = Config{
 		Prefix:      "RLOCK_",
@@ -46,8 +46,8 @@ type Config struct {
 type CancelFunc func() bool
 
 func SetDefault(rcli *redis.Client, cfgs ...Config) {
-	mutex.Lock()
-	defer mutex.Unlock()
+	mux.Lock()
+	defer mux.Unlock()
 	DefaultInstance = New(rcli, cfgs...)
 }
 
