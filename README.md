@@ -12,15 +12,15 @@ go get -u github.com/eininst/rlock
 
 ```go
 func init(){
-	rlock.SetDefault(getRedis())
+    rlock.SetDefault(getRedis())
 }
 
 func main() {
-	ok, cancel := lock.Acquire("lock_name_test", time.Second*10)
-	defer cancel()
-	if ok {
-		fmt.Println("my is safe")
-	}
+    ok, cancel := lock.Acquire("lock_name_test", time.Second*10)
+    defer cancel()
+    if ok {
+        fmt.Println("my is safe")
+    }
 }
 ```
 
