@@ -18,7 +18,7 @@ func init(){
 }
 
 func main() {
-    ok, cancel := lock.Acquire("lock_name_test", time.Second*10)
+    ok, cancel := rlock.Acquire("lock_name_test", time.Second*10)
     defer cancel()
     if ok {
         fmt.Println("my is safe")
