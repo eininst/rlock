@@ -3,6 +3,7 @@ package rlock
 import (
 	"context"
 	"fmt"
+	"github.com/eininst/flog"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"sync"
@@ -57,15 +58,19 @@ func New(rcli *redis.Client, cfgs ...Config) *Rlock {
 	if len(cfgs) > 0 {
 		cfg = cfgs[0]
 	}
+	hash := ""
 	if !cfg.DisableHash {
 		once.Do(func() {
 			hashstr, err := rcli.ScriptLoad(context.TODO(), LOCK_DEL).Result()
 			if err != nil {
+				flog.Warn("[RLOCK] Script load err:", err)
+			} else {
 				lockDelHash = hashstr
 			}
 		})
+		hash = lockDelHash
 	}
-	return &Rlock{cli: rcli, Config: cfg, hash: lockDelHash}
+	return &Rlock{cli: rcli, Config: cfg, hash: hash}
 }
 
 func Acquire(lockName string, timeout time.Duration) (bool, CancelFunc) {
