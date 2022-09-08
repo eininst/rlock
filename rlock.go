@@ -13,7 +13,7 @@ import (
 var rlog flog.Interface
 
 func init() {
-	f := fmt.Sprintf("${level} %s[RLOCK]%s ${time} ${msg}", flog.Magenta, flog.Reset)
+	f := fmt.Sprintf("${time} ${level} %s[RLOCK]%s ${msg}", flog.Magenta, flog.Reset)
 	rlog = flog.New(flog.Config{
 		Format: f,
 	})
