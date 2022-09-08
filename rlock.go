@@ -10,6 +10,15 @@ import (
 	"time"
 )
 
+var rlog flog.Interface
+
+func init() {
+	f := fmt.Sprintf("${level} %s[RLOCK]%s ${time} ${msg}", flog.Magenta, flog.Reset)
+	rlog = flog.New(flog.Config{
+		Format: f,
+	})
+}
+
 const LOCK_DEL = `
 if redis.call("GET", KEYS[1]) == ARGV[1] then
     return redis.call("DEL", KEYS[1])
@@ -63,7 +72,7 @@ func New(rcli *redis.Client, cfgs ...Config) *Rlock {
 		once.Do(func() {
 			hashstr, err := rcli.ScriptLoad(context.TODO(), LOCK_DEL).Result()
 			if err != nil {
-				flog.Warn("[RLOCK] Script load err:", err)
+				rlog.Error("[RLOCK] Script load error:", err)
 			} else {
 				lockDelHash = hashstr
 			}
@@ -103,6 +112,7 @@ func (rlock *Rlock) Acquire(lockName string, timeout time.Duration) (bool, Cance
 		}
 		ok, er := rlock.cli.SetNX(ctx, key, val, tout).Result()
 		if er != nil {
+			rlog.Errorf(`SetNX key: "%s", Error: %v`, key, er)
 			return false, cancelFunc
 		}
 		if ok {
