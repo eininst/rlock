@@ -19,8 +19,9 @@ end`
 var (
 	DefaultInstance *Rlock
 	mux             = &sync.Mutex{}
-
-	defaultConfig = Config{
+	once            sync.Once
+	lockDelHash     = ""
+	defaultConfig   = Config{
 		Prefix:      "RLOCK_",
 		DisableHash: false,
 	}
@@ -28,8 +29,8 @@ var (
 
 type Rlock struct {
 	Config
-	cli         *redis.Client
-	lockDelHash string
+	cli  *redis.Client
+	hash string
 }
 
 type RlockContext struct {
@@ -56,11 +57,15 @@ func New(rcli *redis.Client, cfgs ...Config) *Rlock {
 	if len(cfgs) > 0 {
 		cfg = cfgs[0]
 	}
-	lockDelHash, err := rcli.ScriptLoad(context.TODO(), LOCK_DEL).Result()
-	if err != nil {
-		cfg.DisableHash = true
+	if !cfg.DisableHash {
+		once.Do(func() {
+			hashstr, err := rcli.ScriptLoad(context.TODO(), LOCK_DEL).Result()
+			if err != nil {
+				lockDelHash = hashstr
+			}
+		})
 	}
-	return &Rlock{cli: rcli, Config: cfg, lockDelHash: lockDelHash}
+	return &Rlock{cli: rcli, Config: cfg, hash: lockDelHash}
 }
 
 func Acquire(lockName string, timeout time.Duration) (bool, CancelFunc) {
@@ -103,10 +108,10 @@ func (rlock *Rlock) Acquire(lockName string, timeout time.Duration) (bool, Cance
 }
 
 func (rlock *Rlock) cancel(ctx context.Context, key, val string) (r interface{}, err error) {
-	if rlock.DisableHash {
+	if rlock.hash == "" {
 		r, err = rlock.cli.Eval(ctx, LOCK_DEL, []string{key}, []any{val}).Result()
 	} else {
-		r, err = rlock.cli.EvalSha(ctx, rlock.lockDelHash, []string{key}, []any{val}).Result()
+		r, err = rlock.cli.EvalSha(ctx, rlock.hash, []string{key}, []any{val}).Result()
 	}
 	return
 }
