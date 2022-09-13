@@ -35,6 +35,9 @@ var (
 		Prefix:      "RLOCK_",
 		DisableHash: false,
 	}
+	defaultCancelFunc = func() bool {
+		return false
+	}
 )
 
 type Rlock struct {
@@ -86,12 +89,35 @@ func Acquire(lockName string, timeout time.Duration) (bool, CancelFunc) {
 	return DefaultInstance.Acquire(lockName, timeout)
 }
 
+func (rlock *Rlock) TryAcquire(lockName string, exp time.Duration) (bool, CancelFunc) {
+	ctx := context.TODO()
+	key := fmt.Sprintf("%s%s", rlock.Prefix, lockName)
+	val := fmt.Sprintf("%s_%s", lockName, uuid.NewString())
+	ok, er := rlock.cli.SetNX(ctx, key, val, exp).Result()
+	if er != nil {
+		rlog.Errorf(`SetNX key: "%s", Error: %v`, key, er)
+		return false, defaultCancelFunc
+	}
+	if ok {
+		return true, func() bool {
+			r, err := rlock.cancel(ctx, key, val)
+			if err != nil {
+				return false
+			}
+			if reply, ok := r.(int64); !ok {
+				return false
+			} else {
+				return reply == 1
+			}
+		}
+	}
+	return false, defaultCancelFunc
+}
 func (rlock *Rlock) Acquire(lockName string, timeout time.Duration) (bool, CancelFunc) {
+	ctx := context.TODO()
 	key := fmt.Sprintf("%s%s", rlock.Prefix, lockName)
 	val := fmt.Sprintf("%s_%s", lockName, uuid.NewString())
 	endtime := time.Now().UnixMicro() + timeout.Microseconds()
-
-	ctx := context.TODO()
 
 	var cancelFunc = func() bool {
 		r, err := rlock.cancel(ctx, key, val)
@@ -105,15 +131,14 @@ func (rlock *Rlock) Acquire(lockName string, timeout time.Duration) (bool, Cance
 		}
 	}
 
-	tout := timeout + time.Millisecond*500
 	for {
 		if time.Now().UnixMicro() > endtime {
-			return false, cancelFunc
+			return false, defaultCancelFunc
 		}
-		ok, er := rlock.cli.SetNX(ctx, key, val, tout).Result()
+		ok, er := rlock.cli.SetNX(ctx, key, val, timeout).Result()
 		if er != nil {
 			rlog.Errorf(`SetNX key: "%s", Error: %v`, key, er)
-			return false, cancelFunc
+			return false, defaultCancelFunc
 		}
 		if ok {
 			return true, cancelFunc
