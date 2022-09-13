@@ -32,8 +32,7 @@ var (
 	once            sync.Once
 	lockDelHash     = ""
 	defaultConfig   = Config{
-		Prefix:      "RLOCK_",
-		DisableHash: false,
+		Prefix: "RLOCK_",
 	}
 	defaultCancelFunc = func() bool {
 		return false
@@ -42,8 +41,7 @@ var (
 
 type Rlock struct {
 	Config
-	cli  *redis.Client
-	hash string
+	cli *redis.Client
 }
 
 type RlockContext struct {
@@ -53,8 +51,8 @@ type RlockContext struct {
 }
 
 type Config struct {
-	Prefix      string
-	DisableHash bool
+	Prefix string
+	//DisableHash bool
 }
 
 type CancelFunc func() bool
@@ -70,19 +68,7 @@ func New(rcli *redis.Client, cfgs ...Config) *Rlock {
 	if len(cfgs) > 0 {
 		cfg = cfgs[0]
 	}
-	hash := ""
-	if !cfg.DisableHash {
-		once.Do(func() {
-			hashstr, err := rcli.ScriptLoad(context.TODO(), LOCK_DEL).Result()
-			if err != nil {
-				rlog.Error("[RLOCK] Script load error:", err)
-			} else {
-				lockDelHash = hashstr
-			}
-		})
-		hash = lockDelHash
-	}
-	return &Rlock{cli: rcli, Config: cfg, hash: hash}
+	return &Rlock{cli: rcli, Config: cfg}
 }
 
 func Acquire(lockName string, timeout time.Duration) (bool, CancelFunc) {
@@ -149,11 +135,6 @@ func (rlock *Rlock) Acquire(lockName string, timeout time.Duration) (bool, Cance
 	}
 }
 
-func (rlock *Rlock) cancel(ctx context.Context, key, val string) (r interface{}, err error) {
-	if rlock.hash == "" {
-		r, err = rlock.cli.Eval(ctx, LOCK_DEL, []string{key}, []any{val}).Result()
-	} else {
-		r, err = rlock.cli.EvalSha(ctx, rlock.hash, []string{key}, []any{val}).Result()
-	}
-	return
+func (rlock *Rlock) cancel(ctx context.Context, key, val string) (interface{}, error) {
+	return rlock.cli.Eval(ctx, LOCK_DEL, []string{key}, []any{val}).Result()
 }
