@@ -89,11 +89,11 @@ func Acquire(lockName string, timeout time.Duration) (bool, CancelFunc) {
 	return DefaultInstance.Acquire(lockName, timeout)
 }
 
-func (rlock *Rlock) TryAcquire(lockName string, exp time.Duration) (bool, CancelFunc) {
+func (rlock *Rlock) TryAcquire(lockName string, timeout time.Duration) (bool, CancelFunc) {
 	ctx := context.TODO()
 	key := fmt.Sprintf("%s%s", rlock.Prefix, lockName)
 	val := fmt.Sprintf("%s_%s", lockName, uuid.NewString())
-	ok, er := rlock.cli.SetNX(ctx, key, val, exp).Result()
+	ok, er := rlock.cli.SetNX(ctx, key, val, timeout).Result()
 	if er != nil {
 		rlog.Errorf(`SetNX key: "%s", Error: %v`, key, er)
 		return false, defaultCancelFunc
