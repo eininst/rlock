@@ -75,6 +75,10 @@ func Acquire(lockName string, timeout time.Duration) (bool, CancelFunc) {
 	return DefaultInstance.Acquire(lockName, timeout)
 }
 
+func TryAcquire(lockName string, expire time.Duration) (bool, CancelFunc) {
+	return DefaultInstance.TryAcquire(lockName, expire)
+}
+
 func (rlock *Rlock) TryAcquire(lockName string, expire time.Duration) (bool, CancelFunc) {
 	ctx := context.TODO()
 	key := fmt.Sprintf("%s%s", rlock.Prefix, lockName)
@@ -105,18 +109,6 @@ func (rlock *Rlock) Acquire(lockName string, timeout time.Duration) (bool, Cance
 	val := fmt.Sprintf("%s_%s", lockName, uuid.NewString())
 	endtime := time.Now().UnixMicro() + timeout.Microseconds()
 
-	var cancelFunc = func() bool {
-		r, err := rlock.cancel(ctx, key, val)
-		if err != nil {
-			return false
-		}
-		if reply, ok := r.(int64); !ok {
-			return false
-		} else {
-			return reply == 1
-		}
-	}
-
 	interval := time.Millisecond * 5
 	expire := (timeout * 2) + interval
 	for {
@@ -129,7 +121,17 @@ func (rlock *Rlock) Acquire(lockName string, timeout time.Duration) (bool, Cance
 			return false, defaultCancelFunc
 		}
 		if ok {
-			return true, cancelFunc
+			return true, func() bool {
+				r, err := rlock.cancel(ctx, key, val)
+				if err != nil {
+					return false
+				}
+				if reply, ok := r.(int64); !ok {
+					return false
+				} else {
+					return reply == 1
+				}
+			}
 		}
 		time.Sleep(interval)
 	}
