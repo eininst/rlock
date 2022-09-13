@@ -89,11 +89,11 @@ func Acquire(lockName string, timeout time.Duration) (bool, CancelFunc) {
 	return DefaultInstance.Acquire(lockName, timeout)
 }
 
-func (rlock *Rlock) TryAcquire(lockName string, timeout time.Duration) (bool, CancelFunc) {
+func (rlock *Rlock) TryAcquire(lockName string, expire time.Duration) (bool, CancelFunc) {
 	ctx := context.TODO()
 	key := fmt.Sprintf("%s%s", rlock.Prefix, lockName)
 	val := fmt.Sprintf("%s_%s", lockName, uuid.NewString())
-	ok, er := rlock.cli.SetNX(ctx, key, val, timeout).Result()
+	ok, er := rlock.cli.SetNX(ctx, key, val, expire).Result()
 	if er != nil {
 		rlog.Errorf(`SetNX key: "%s", Error: %v`, key, er)
 		return false, defaultCancelFunc
@@ -131,11 +131,13 @@ func (rlock *Rlock) Acquire(lockName string, timeout time.Duration) (bool, Cance
 		}
 	}
 
+	interval := time.Millisecond * 5
+	expire := (timeout * 2) + interval
 	for {
 		if time.Now().UnixMicro() > endtime {
 			return false, defaultCancelFunc
 		}
-		ok, er := rlock.cli.SetNX(ctx, key, val, timeout).Result()
+		ok, er := rlock.cli.SetNX(ctx, key, val, expire).Result()
 		if er != nil {
 			rlog.Errorf(`SetNX key: "%s", Error: %v`, key, er)
 			return false, defaultCancelFunc
@@ -143,7 +145,7 @@ func (rlock *Rlock) Acquire(lockName string, timeout time.Duration) (bool, Cance
 		if ok {
 			return true, cancelFunc
 		}
-		time.Sleep(time.Millisecond * 5)
+		time.Sleep(interval)
 	}
 }
 
