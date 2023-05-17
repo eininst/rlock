@@ -31,7 +31,9 @@ var (
 	mux             = &sync.Mutex{}
 	once            sync.Once
 	lockDelHash     = ""
-	defaultConfig   = Config{
+
+	LockInterval  = time.Millisecond * 4
+	defaultConfig = Config{
 		Prefix: "RLOCK_",
 	}
 	defaultCancelFunc = func() bool {
@@ -68,6 +70,16 @@ func New(rcli *redis.Client, cfgs ...Config) *Rlock {
 	if len(cfgs) > 0 {
 		cfg = cfgs[0]
 	}
+
+	once.Do(func() {
+		zhash, err := rcli.ScriptLoad(context.TODO(), LOCK_DEL).Result()
+		if err != nil {
+			flog.Warn("[RLOCK] LOCK_DEL ScriptLoad error:", err)
+		} else {
+			lockDelHash = zhash
+		}
+	})
+
 	return &Rlock{cli: rcli, Config: cfg}
 }
 
@@ -109,8 +121,7 @@ func (rlock *Rlock) Acquire(lockName string, timeout time.Duration) (bool, Cance
 	val := fmt.Sprintf("%s_%s", lockName, uuid.NewString())
 	endtime := time.Now().UnixMicro() + timeout.Microseconds()
 
-	interval := time.Millisecond * 5
-	expire := (timeout * 2) + interval
+	expire := timeout + LockInterval
 	for {
 		if time.Now().UnixMicro() > endtime {
 			return false, defaultCancelFunc
@@ -133,10 +144,13 @@ func (rlock *Rlock) Acquire(lockName string, timeout time.Duration) (bool, Cance
 				}
 			}
 		}
-		time.Sleep(interval)
+		time.Sleep(LockInterval)
 	}
 }
 
 func (rlock *Rlock) cancel(ctx context.Context, key, val string) (interface{}, error) {
+	if lockDelHash != "" {
+		return rlock.cli.EvalSha(ctx, lockDelHash, []string{key}, []any{val}).Result()
+	}
 	return rlock.cli.Eval(ctx, LOCK_DEL, []string{key}, []any{val}).Result()
 }
