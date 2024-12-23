@@ -1,6 +1,7 @@
 # Rlock
 
-[![Build Status](https://travis-ci.org/ivpusic/grpool.svg?branch=master)](https://github.com/infinitasx/easi-go-aws)
+[![Go Reference](https://pkg.go.dev/badge/github.com/eininst/rlock.svg)](https://pkg.go.dev/github.com/eininst/redis-stream-pubsub)
+[![License](https://img.shields.io/github/license/eininst/rlock.svg)](LICENSE)
 
 `Implementation of redis lock`
 
