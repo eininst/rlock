@@ -1,6 +1,6 @@
 # Rlock
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/eininst/rlock.svg)](https://pkg.go.dev/github.com/eininst/redis-stream-pubsub)
+[![Go Reference](https://pkg.go.dev/badge/github.com/eininst/rlock.svg)](https://pkg.go.dev/github.com/eininst/rlock)
 [![License](https://img.shields.io/github/license/eininst/rlock.svg)](LICENSE)
 
 `rlock` is a Go package that provides a simple and efficient distributed locking mechanism using Redis. It allows multiple instances of your application to coordinate access to shared resources, ensuring that only one instance can hold the lock at any given time.
