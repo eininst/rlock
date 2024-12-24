@@ -31,7 +31,7 @@ type RedisLock struct {
 // 默认选项配置
 func defaultOptions() *Options {
 	return &Options{
-		MaxRetry:   128,
+		MaxRetry:   200,
 		RetryDelay: 50 * time.Millisecond,
 		Expiration: 8 * time.Second,
 	}
