@@ -53,8 +53,8 @@ func main() {
 
 ```go
 func main() {
-    lk := rlock.New("redis://localhost:6379/0",
-		rlock.WithExpiration(time.Second*10),
+    lk := rlock.New("redis://localhost:6379/0", 
+	rlock.WithExpiration(time.Second*10),
         rlock.WithMaxRetry(200),
         rlock.WithRetryDelay(time.Millisecond*100),)
     
