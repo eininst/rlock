@@ -31,8 +31,8 @@ type RedisLock struct {
 // 默认选项配置
 func defaultOptions() *Options {
 	return &Options{
-		MaxRetry:   64,
-		RetryDelay: 32 * time.Millisecond,
+		MaxRetry:   128,
+		RetryDelay: 50 * time.Millisecond,
 		Expiration: 8 * time.Second,
 	}
 }
@@ -68,11 +68,22 @@ func SetDefault(rlock *RedisLock) {
 	})
 }
 
+func TryAcquire(ctx context.Context, key string, opts ...Option) (bool, CancelFunc) {
+	return instance.TryAcquire(ctx, key, opts...)
+}
+
+func Acquire(ctx context.Context, key string, opts ...Option) (bool, CancelFunc) {
+	return instance.Acquire(ctx, key, opts...)
+}
+
 func (r *RedisLock) Acquire(ctx context.Context, key string, opts ...Option) (bool, CancelFunc) {
 	options := r.cloneOptions(opts...)
 	rlk := newRedisLock(r.rcli, key, options)
 
-	return rlk.Acquire(ctx)
+	cancelCtx, cancel := context.WithTimeout(ctx, rlk.expiration)
+	defer cancel()
+
+	return rlk.Acquire(cancelCtx)
 }
 
 func (r *RedisLock) TryAcquire(ctx context.Context, key string, opts ...Option) (bool, CancelFunc) {
@@ -80,14 +91,6 @@ func (r *RedisLock) TryAcquire(ctx context.Context, key string, opts ...Option) 
 	rlk := newRedisLock(r.rcli, key, options)
 
 	return rlk.TryAcquire(ctx)
-}
-
-func TryAcquire(ctx context.Context, key string, opts ...Option) (bool, CancelFunc) {
-	return instance.TryAcquire(ctx, key, opts...)
-}
-
-func Acquire(ctx context.Context, key string, opts ...Option) (bool, CancelFunc) {
-	return instance.Acquire(ctx, key, opts...)
 }
 
 func (r *RedisLock) cloneOptions(opts ...Option) *Options {
@@ -126,8 +129,14 @@ func (l *redisLock) Acquire(ctx context.Context) (bool, CancelFunc) {
 		if ok {
 			return true, cancel
 		}
-		// Wait before retrying
-		time.Sleep(l.retryDelay)
+
+		// 使用 select 监听上下文取消和重试延迟
+		select {
+		case <-ctx.Done():
+			return false, defaultCancelFunc
+		case <-time.After(l.retryDelay):
+			// 继续重试
+		}
 	}
 	return false, defaultCancelFunc
 }

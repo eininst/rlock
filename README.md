@@ -35,12 +35,13 @@ import (
 func main() {
 	rlock.SetDefault(rlock.New("redis://localhost:6379/0"))
 
-	ok, cancel := rlock.Acquire(context.TODO(), "lock_name_test",
-		rlock.WithExpiration(time.Second*5),
-		rlock.WithMaxRetry(32),
-		rlock.WithRetryDelay(time.Millisecond*100),
-	)
+	//Leverage Go's `context.Context` for cancellation and timeout control
+	//The default timeout is the key expiration time.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
+
+	ok, unlock := rlock.Acquire(ctx, "lock_name_test")
+	defer unlock()
 
 	if ok {
 		fmt.Println("my is safe")
@@ -52,7 +53,10 @@ func main() {
 
 ```go
 func main() {
-    lk := rlock.New("redis://localhost:6379/0", rlock.WithExpiration(time.Second*5),)
+    lk := rlock.New("redis://localhost:6379/0",
+		rlock.WithExpiration(time.Second*10),
+        rlock.WithMaxRetry(200),
+        rlock.WithRetryDelay(time.Millisecond*100),)
     
     ok, cancel := lk.Acquire("lock_name_test")
     defer cancel()
