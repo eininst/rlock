@@ -3,7 +3,16 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/eininst/rlock.svg)](https://pkg.go.dev/github.com/eininst/redis-stream-pubsub)
 [![License](https://img.shields.io/github/license/eininst/rlock.svg)](LICENSE)
 
-`Implementation of redis lock`
+`rlock` is a Go package that provides a simple and efficient distributed locking mechanism using Redis. It allows multiple instances of your application to coordinate access to shared resources, ensuring that only one instance can hold the lock at any given time.
+
+## Features
+
+- **Distributed Locking**: Utilize Redis to manage distributed locks across multiple instances.
+- **Customizable Options**: Configure retry attempts, retry delays, and lock expiration times.
+- **Safe Lock Release**: Employs Lua scripting to ensure that only the lock owner can release the lock.
+- **Flexible Initialization**: Initialize using a Redis URL or an existing Redis client.
+- **Context Support**: Leverage Go's `context.Context` for cancellation and timeout control.
+
 
 ## ⚙️ Installation
 
@@ -14,16 +23,28 @@ go get -u github.com/eininst/rlock
 ## ⚡ Quickstart
 
 ```go
-func init(){
-    rlock.SetDefault(getRedis())
-}
+package main
+
+import (
+	"context"
+	"fmt"
+	"github.com/eininst/rlock"
+	"time"
+)
 
 func main() {
-    ok, cancel := rlock.Acquire("lock_name_test", time.Second*10)
-    defer cancel()
-    if ok {
-        fmt.Println("my is safe")
-    }
+	rlock.SetDefault(rlock.New("redis://localhost:6379/0"))
+
+	ok, cancel := rlock.Acquire(context.TODO(), "lock_name_test",
+		rlock.WithExpiration(time.Second*5),
+		rlock.WithMaxRetry(32),
+		rlock.WithRetryDelay(time.Millisecond*100),
+	)
+	defer cancel()
+
+	if ok {
+		fmt.Println("my is safe")
+	}
 }
 ```
 
@@ -31,9 +52,9 @@ func main() {
 
 ```go
 func main() {
-    lk := rlock.New(getRedis())
+    lk := rlock.New("redis://localhost:6379/0", rlock.WithExpiration(time.Second*5),)
     
-    ok, cancel := lk.Acquire("lock_name_test", time.Second*10)
+    ok, cancel := lk.Acquire("lock_name_test")
     defer cancel()
     if ok {
         fmt.Println("my is safe")
@@ -41,7 +62,7 @@ func main() {
 }
 ```
 
-> See [examples](/examples)
+> See [examples](/example)
 
 ## License
 
